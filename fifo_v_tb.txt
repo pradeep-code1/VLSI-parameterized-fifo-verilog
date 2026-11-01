@@ -1,0 +1,100 @@
+
+`timescale 1ns/1ps
+
+module fifo_tb;
+
+    reg clk;
+    reg rst;
+    reg wr_en;
+    reg rd_en;
+    reg [7:0] din;
+
+    wire [7:0] dout;
+    wire full;
+    wire empty;
+
+    integer i;
+
+    fifo #(
+        .DATA_WIDTH(8),
+        .FIFO_DEPTH(16)
+    ) uut (
+        .clk(clk),
+        .rst(rst),
+        .wr_en(wr_en),
+        .rd_en(rd_en),
+        .din(din),
+        .dout(dout),
+        .full(full),
+        .empty(empty)
+    );
+
+    // Clock generation
+    always #5 clk = ~clk;
+
+    initial begin
+        clk = 0;
+        rst = 1;
+        wr_en = 0;
+        rd_en = 0;
+        din = 0;
+
+        // Apply reset
+        #10;
+        rst = 0;
+
+        if (empty)
+            $display("PASS: FIFO empty after reset");
+        else
+            $display("FAIL: FIFO not empty after reset");
+
+        // Write 16 values
+        for (i = 1; i <= 16; i = i + 1) begin
+            @(negedge clk);
+            wr_en = 1;
+            din = i;
+        end
+
+        @(negedge clk);
+        wr_en = 0;
+
+        if (full)
+            $display("PASS: FIFO full after writing 16 values");
+        else
+            $display("FAIL: FIFO did not become full");
+
+        // Attempt extra write while full
+        @(negedge clk);
+        wr_en = 1;
+        din = 8'h99;
+
+        @(negedge clk);
+        wr_en = 0;
+
+        // Read all 16 values
+        for (i = 1; i <= 16; i = i + 1) begin
+            @(negedge clk);
+            rd_en = 1;
+
+            @(posedge clk);
+            #1;
+
+            if (dout == i)
+                $display("PASS: Read value %0d", dout);
+            else
+                $display("FAIL: Expected %0d, got %0d", i, dout);
+        end
+
+        @(negedge clk);
+        rd_en = 0;
+
+        if (empty)
+            $display("PASS: FIFO empty after reading");
+        else
+            $display("FAIL: FIFO not empty after reading");
+
+        #10;
+        $finish;
+    end
+
+endmodule
